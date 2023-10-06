@@ -25,8 +25,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 n_sent = 0
 n_discarded = 0
 
+# Progress bar displays (bytes read) / (total bytes of PCAP file)
 n_bytes_total = os.path.getsize(args.input)
 prog = tqdm.tqdm(desc="Replaying PCAP", total=n_bytes_total, unit='B', unit_scale=True)
+
 with open(args.input, "rb") as f:
     pcap = dpkt.pcap.Reader(f)
     timestamp_last = None
@@ -34,6 +36,8 @@ with open(args.input, "rb") as f:
 
     for i, (timestamp_s, buf) in enumerate(pcap):
         prog.update(len(buf))
+        
+        # This automatically discards everything that is not a UDP packet
         try:
             eth = dpkt.ethernet.Ethernet(buf)
             ip = eth.data
@@ -44,6 +48,7 @@ with open(args.input, "rb") as f:
             n_discarded += 1
             continue
 
+        # To send packets at the same rate they were recorded in, wait if necessary
         t_now = time.time()
         if timestamp_last is None:
             wait_s = 0
