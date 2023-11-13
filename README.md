@@ -12,6 +12,8 @@ in, or slower if the tool cannot keep up with that rate.
 The source address is set to the device's IP address on the interface that routes to `dst_address`.
 The source port is set to a random free port.
 
+Supported formats: `.pcap`, `.pcapng`
+
 ## Setup
 
 ```bash

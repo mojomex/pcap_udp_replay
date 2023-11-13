@@ -10,7 +10,7 @@ import tqdm
 parser = argparse.ArgumentParser(
     description="Replay a PCAP file containing UDP packets while rewriting the target IP address"
 )
-parser.add_argument("input", help="The PCAP file to read from")
+parser.add_argument("input", help="The PCAP file to read from. Supported formats: .pcap, .pcapng")
 parser.add_argument(
     "--dst-address",
     default="127.0.0.1",
@@ -27,10 +27,19 @@ n_discarded = 0
 
 # Progress bar displays (bytes read) / (total bytes of PCAP file)
 n_bytes_total = os.path.getsize(args.input)
-prog = tqdm.tqdm(desc="Replaying PCAP", total=n_bytes_total, unit='B', unit_scale=True)
+prog = tqdm.tqdm(desc="Replaying Packets", total=n_bytes_total, unit='B', unit_scale=True)
+
+file_type = os.path.splitext(args.input)[1]
 
 with open(args.input, "rb") as f:
-    pcap = dpkt.pcap.Reader(f)
+    if file_type == ".pcap":
+        pcap = dpkt.pcap.Reader(f)
+    elif file_type == ".pcapng":
+        pcap = dpkt.pcapng.Reader(f)
+    else:
+        print(f"Unknown file type: {file_type}. Expected .pcap or .pcapng.")
+        exit(1)
+
     timestamp_last = None
     t_last = None
 
@@ -64,5 +73,6 @@ with open(args.input, "rb") as f:
         sock.sendto(payload, (args.dst_address, dport))
         n_sent += 1
 
+prog.update(n_bytes_total - prog.n)
 prog.close()
 print(f"Read {n_sent + n_discarded} packets, sent {n_sent}, discarded {n_discarded}.")
