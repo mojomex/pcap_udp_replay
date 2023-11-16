@@ -17,8 +17,16 @@ parser.add_argument(
     metavar="IP",
     help="The IP address to send packets to (default: 127.0.0.1)",
 )
+parser.add_argument(
+    "-n", "--num-packets", type=int, help="The number of packets to send (default: 0 (all))",
+    default=0
+)
+parser.add_argument(
+    "-f", "--filter", help="A Python lambda function to filter packets (default: None)"
+)
 
 args = parser.parse_args()
+filt = eval(args.filter) if args.filter is not None else lambda _: True
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -44,7 +52,9 @@ with open(args.input, "rb") as f:
     t_last = None
 
     for i, (timestamp_s, buf) in enumerate(pcap):
-        prog.update(len(buf))
+        if n_sent >= args.num_packets and args.num_packets > 0:
+            break
+        prog.update(f.tell() - prog.n)
         
         # This automatically discards everything that is not a UDP packet
         try:
@@ -53,6 +63,10 @@ with open(args.input, "rb") as f:
             udp = ip.data
             payload = udp.data
             dport = udp.dport
+
+            if not filt(eth):
+                n_discarded += 1
+                continue
         except AttributeError:
             n_discarded += 1
             continue
@@ -73,6 +87,7 @@ with open(args.input, "rb") as f:
         sock.sendto(payload, (args.dst_address, dport))
         n_sent += 1
 
-prog.update(n_bytes_total - prog.n)
+if args.n == 0:
+    prog.update(n_bytes_total - prog.n)
 prog.close()
 print(f"Read {n_sent + n_discarded} packets, sent {n_sent}, discarded {n_discarded}.")
